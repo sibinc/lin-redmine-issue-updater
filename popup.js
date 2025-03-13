@@ -89,6 +89,19 @@ async function saveApiKey() {
     return;
   }
   
+  // Show loading state
+  document.getElementById('message').textContent = 'Verifying API key...';
+  document.getElementById('message').style.color = 'blue';
+  
+  // Try to fetch user details to verify the API key is valid
+  const userDetails = await fetchCurrentUser(apiKey);
+  
+  if (!userDetails) {
+    document.getElementById('message').textContent = 'Invalid API key. Could not retrieve user details.';
+    document.getElementById('message').style.color = 'red';
+    return;
+  }
+  
   // Save the API key
   await chrome.storage.local.set({ redmineApiKey: apiKey });
   
@@ -97,7 +110,7 @@ async function saveApiKey() {
   document.getElementById('apiKeyNotSet').classList.add('hidden');
   document.getElementById('mainContent').classList.remove('hidden');
   
-  document.getElementById('message').textContent = 'API key saved successfully!';
+  document.getElementById('message').textContent = `API key saved successfully! Welcome, ${userDetails.userName}!`;
   document.getElementById('message').style.color = 'green';
   
   // Reload the extension functionality with the new key
@@ -107,6 +120,8 @@ async function saveApiKey() {
 
 // Main initialization function
 function initializeExtension(apiKey, storedIssueId, storedIssueTitle) {
+  // Update user info display
+  updateUserInfoDisplay();
   // Show loading state
   showLoadingState(true);
   
@@ -315,4 +330,62 @@ async function updateIssueStatus(apiKey) {
     messageDiv.style.color = 'red';
     showLoadingState(false);
   }
+}
+
+
+// Function to fetch current user details using API key
+async function fetchCurrentUser(apiKey) {
+  try {
+    const response = await fetch('https://redmine.linways.com/users/current.json', {
+      method: 'GET',
+      headers: {
+        'X-Redmine-API-Key': apiKey,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      const userName = data.user?.firstname + ' ' + data.user?.lastname;
+      const userId = data.user?.id;
+      
+      // Store user details in local storage
+      await chrome.storage.local.set({ 
+        redmineUserName: userName,
+        redmineUserId: userId
+      });
+      
+      return { userName, userId };
+    } else {
+      console.error('Failed to fetch user details');
+      return null;
+    }
+  } catch (error) {
+    console.error('Error fetching user details:', error);
+    return null;
+  }
+}
+
+// Function to update user info in the UI
+function updateUserInfoDisplay() {
+  chrome.storage.local.get(['redmineUserName'], (result) => {
+    if (result.redmineUserName) {
+      // Create or update a user info element
+      let userInfoElement = document.getElementById('userInfo');
+      if (!userInfoElement) {
+        userInfoElement = document.createElement('div');
+        userInfoElement.id = 'userInfo';
+        userInfoElement.style.fontSize = '12px';
+        userInfoElement.style.color = '#666';
+        userInfoElement.style.marginBottom = '10px';
+        userInfoElement.style.textAlign = 'right';
+        
+        // Insert after the header
+        const headerElement = document.querySelector('h3');
+        headerElement.parentNode.insertBefore(userInfoElement, headerElement.nextSibling);
+      }
+      
+      userInfoElement.textContent = `Logged in as: ${result.redmineUserName}`;
+    }
+  });
 }
