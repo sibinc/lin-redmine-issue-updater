@@ -12,6 +12,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('apiKeyContainer').style.display = 'block';
   });
   
+  // Set up clipboard copy button
+  document.getElementById('copyToClipboard').addEventListener('click', copyIssueIdToClipboard);
+  
   // Check if API key is set and handle appropriately
   if (!storedApiKey) {
     // No API key, show the setup prompt
@@ -38,6 +41,41 @@ function toggleApiKeySettings() {
       }
     });
     apiKeyContainer.style.display = 'block';
+  }
+}
+
+// Function to copy Issue ID to clipboard
+function copyIssueIdToClipboard() {
+  const issueIdInput = document.getElementById('issueId');
+  const issueId = issueIdInput.value.trim();
+  
+  if (issueId) {
+    // Use navigator.clipboard API to copy text
+    navigator.clipboard.writeText(issueId).then(() => {
+      // Show success tooltip
+      const tooltip = document.getElementById('copyTooltip');
+      const copyBtn = document.getElementById('copyToClipboard');
+      
+      // Position the tooltip relative to the button
+      const btnRect = copyBtn.getBoundingClientRect();
+      tooltip.style.top = `${btnRect.top - 30}px`;
+      tooltip.style.left = `${btnRect.left - 10}px`;
+      
+      // Show tooltip
+      tooltip.style.display = 'block';
+      
+      // Hide tooltip after 1.5 seconds
+      setTimeout(() => {
+        tooltip.style.display = 'none';
+      }, 1500);
+    }).catch(err => {
+      console.error('Failed to copy: ', err);
+      document.getElementById('message').textContent = 'Failed to copy to clipboard.';
+      document.getElementById('message').style.color = 'red';
+    });
+  } else {
+    document.getElementById('message').textContent = 'No Issue ID to copy.';
+    document.getElementById('message').style.color = 'orange';
   }
 }
 
@@ -197,7 +235,7 @@ function updateIssueTitleDisplay(issueId, title) {
     const issueLink = document.createElement('a');
     issueLink.href = `https://redmine.linways.com/issues/${issueId}`;
     issueLink.textContent = `#${issueId}: ${title}`;
-    issueLink.title = "Click to open issue in Redmine";
+    issueLink.title = title; // Add title attribute for tooltip on hover
     
     // Add click handler to open in new tab
     issueLink.addEventListener('click', (e) => {
