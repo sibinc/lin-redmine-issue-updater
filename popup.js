@@ -14,6 +14,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Set up clipboard copy button
   document.getElementById('copyToClipboard').addEventListener('click', copyIssueIdToClipboard);
+
+
+    // Set up shortcut input listeners
+    const shortcutInput = document.getElementById('threadShortcut');
+    shortcutInput.addEventListener('focus', startRecordingShortcut);
+    shortcutInput.addEventListener('blur', stopRecordingShortcut);
+    
+    // Set up reset shortcut button
+    document.getElementById('resetShortcut').addEventListener('click', resetShortcutToDefault);
+    
+    // Load saved shortcut if exists
+    const res = await chrome.storage.local.get(['threadShortcut']);
+    if (res.threadShortcut) {
+      shortcutInput.value = res.threadShortcut;
+      updateThreadInstructionText(res.threadShortcut);
+    } else {
+      // Default shortcut
+      shortcutInput.value = 'Ctrl+Shift+Z';
+      updateThreadInstructionText('Ctrl+Shift+Z');
+    }
   
   // Check if API key is set and handle appropriately
   if (!storedApiKey) {
@@ -79,9 +99,10 @@ function copyIssueIdToClipboard() {
   }
 }
 
-// Function to save API key
+// Function to save API key and settings
 async function saveApiKey() {
   const apiKey = document.getElementById('apiKey').value.trim();
+  const shortcut = document.getElementById('threadShortcut').value.trim();
   
   if (!apiKey) {
     document.getElementById('message').textContent = 'Please enter a valid API key.';
@@ -102,15 +123,21 @@ async function saveApiKey() {
     return;
   }
   
-  // Save the API key
-  await chrome.storage.local.set({ redmineApiKey: apiKey });
+  // Save the API key and shortcut
+  await chrome.storage.local.set({ 
+    redmineApiKey: apiKey,
+    threadShortcut: shortcut 
+  });
+  
+  // Update the instruction text with the new shortcut
+  updateThreadInstructionText(shortcut);
   
   // Hide settings and show main content
   document.getElementById('apiKeyContainer').style.display = 'none';
   document.getElementById('apiKeyNotSet').classList.add('hidden');
   document.getElementById('mainContent').classList.remove('hidden');
   
-  document.getElementById('message').textContent = `API key saved successfully! Welcome, ${userDetails.userName}!`;
+  document.getElementById('message').textContent = `Settings saved successfully! Welcome, ${userDetails.userName}!`;
   document.getElementById('message').style.color = 'green';
   
   // Reload the extension functionality with the new key
@@ -164,6 +191,24 @@ function initializeExtension(apiKey, storedIssueId, storedIssueTitle) {
       fetchIssueDetails(newIssueId, apiKey);
     }
   });
+
+  // Restore thread link if it exists
+  chrome.storage.local.get(['lastThreadUrl'], (result) => {
+    if (result.lastThreadUrl) {
+      const threadLink = document.getElementById('threadLink');
+      threadLink.href = result.lastThreadUrl;
+      threadLink.setAttribute('title', result.lastThreadUrl);
+      threadLink.classList.remove('hidden');
+      
+      // Add click handler to open in new tab
+      threadLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        chrome.tabs.create({ url: result.lastThreadUrl });
+      });
+    }
+  });
+
+
 }
 
 // Function to show/hide loading state
@@ -389,3 +434,180 @@ function updateUserInfoDisplay() {
     }
   });
 }
+
+
+
+
+// Set up keyboard shortcut listener for Ctrl+Shift+Z
+document.addEventListener('keydown', function(event) {
+  // Check for Ctrl+Shift+Z combination
+  if (event.ctrlKey && event.shiftKey && event.key === 'Z') {
+    updateThreadLink();
+  }
+});
+
+// Function to update thread link with current tab URL
+async function updateThreadLink() {
+  try {
+    // Get the current active tab
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    const currentUrl = tabs[0].url;
+    
+    // Update the thread link
+    const threadLink = document.getElementById('threadLink');
+    threadLink.href = currentUrl;
+    threadLink.setAttribute('title', currentUrl);
+    threadLink.classList.remove('hidden');
+    
+    // Add click handler to open in new tab
+    threadLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      chrome.tabs.create({ url: currentUrl });
+    });
+    
+    // Save the URL to storage for persistence
+    chrome.storage.local.set({ lastThreadUrl: currentUrl });
+    
+    // Show a message
+    document.getElementById('message').textContent = 'Thread URL captured!';
+    document.getElementById('message').style.color = 'green';
+    
+    // Clear message after 2 seconds
+    setTimeout(() => {
+      document.getElementById('message').textContent = '';
+    }, 2000);
+  } catch (error) {
+    console.error('Error updating thread link:', error);
+    document.getElementById('message').textContent = 'Failed to capture thread URL.';
+    document.getElementById('message').style.color = 'red';
+  }
+}
+
+
+
+// Variables to track shortcut recording
+let isRecordingShortcut = false;
+let currentModifiers = [];
+let currentKey = '';
+
+// Function to start recording keyboard shortcut
+function startRecordingShortcut() {
+  isRecordingShortcut = true;
+  currentModifiers = [];
+  currentKey = '';
+  
+  const shortcutInput = document.getElementById('threadShortcut');
+  shortcutInput.value = 'Press keys...';
+  shortcutInput.style.backgroundColor = '#e8f4fc';
+  
+  // Add one-time keyboard event listener
+  document.addEventListener('keydown', recordShortcut);
+}
+
+// Function to stop recording keyboard shortcut
+function stopRecordingShortcut() {
+  isRecordingShortcut = false;
+  document.removeEventListener('keydown', recordShortcut);
+  
+  const shortcutInput = document.getElementById('threadShortcut');
+  shortcutInput.style.backgroundColor = '';
+}
+
+// Function to record keyboard shortcut
+function recordShortcut(event) {
+  event.preventDefault();
+  
+  // Check if it's a modifier key
+  if (event.key === 'Control' || event.key === 'Shift' || event.key === 'Alt') {
+    if (!currentModifiers.includes(event.key)) {
+      currentModifiers.push(event.key);
+    }
+  } else {
+    // It's a regular key
+    currentKey = event.key;
+  }
+  
+  // Update the input field
+  const shortcutInput = document.getElementById('threadShortcut');
+  
+  if (currentModifiers.length > 0 && currentKey) {
+    // We have both modifiers and a key
+    const shortcutString = currentModifiers.join('+') + '+' + currentKey;
+    shortcutInput.value = shortcutString;
+    
+    // Save the shortcut
+    chrome.storage.local.set({ threadShortcut: shortcutString });
+    
+    // Update instruction text
+    updateThreadInstructionText(shortcutString);
+    
+    // Stop recording
+    stopRecordingShortcut();
+    shortcutInput.blur();
+  } else if (currentModifiers.length > 0) {
+    // Only modifiers so far
+    shortcutInput.value = currentModifiers.join('+') + '+...';
+  } else if (currentKey) {
+    // Only a key (not recommended but possible)
+    shortcutInput.value = currentKey;
+    
+    // Save the shortcut
+    chrome.storage.local.set({ threadShortcut: currentKey });
+    
+    // Update instruction text
+    updateThreadInstructionText(currentKey);
+    
+    // Stop recording
+    stopRecordingShortcut();
+    shortcutInput.blur();
+  }
+}
+
+// Function to reset shortcut to default
+function resetShortcutToDefault() {
+  const defaultShortcut = 'Ctrl+Shift+Z';
+  const shortcutInput = document.getElementById('threadShortcut');
+  shortcutInput.value = defaultShortcut;
+  
+  // Save the default shortcut
+  chrome.storage.local.set({ threadShortcut: defaultShortcut });
+  
+  // Update instruction text
+  updateThreadInstructionText(defaultShortcut);
+}
+
+// Function to update the thread instruction text
+function updateThreadInstructionText(shortcut) {
+  const instructionElement = document.querySelector('.thread-instruction');
+  if (instructionElement) {
+    instructionElement.innerHTML = `Press <kbd>${shortcut}</kbd> to capture current tab URL as Thread`;
+  }
+}
+
+// Function to check if the pressed keys match the custom shortcut
+function checkCustomShortcut(event) {
+  chrome.storage.local.get(['threadShortcut'], (result) => {
+    const savedShortcut = result.threadShortcut || 'Ctrl+Shift+Z';
+    const parts = savedShortcut.split('+');
+    
+    // Check if all parts of the shortcut are pressed
+    let allPartsPressed = true;
+    
+    for (const part of parts) {
+      if (part === 'Ctrl' && !event.ctrlKey) allPartsPressed = false;
+      if (part === 'Control' && !event.ctrlKey) allPartsPressed = false;
+      if (part === 'Shift' && !event.shiftKey) allPartsPressed = false;
+      if (part === 'Alt' && !event.altKey) allPartsPressed = false;
+      if (part !== 'Ctrl' && part !== 'Control' && part !== 'Shift' && part !== 'Alt') {
+        if (event.key !== part) allPartsPressed = false;
+      }
+    }
+    
+    if (allPartsPressed) {
+      updateThreadLink();
+    }
+  });
+}
+
+// Update existing keyboard event listener to use the custom shortcut
+document.addEventListener('keydown', checkCustomShortcut);

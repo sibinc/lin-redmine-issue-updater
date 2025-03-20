@@ -160,23 +160,159 @@
       z-index: 100;
       display: none;
     }
+
+    /* Thread styles */
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .thread-link {
+      color: #3498db;
+      font-size: 14px;
+      font-weight: bold;
+      text-decoration: none;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background-color: #e8f4fc;
+      transition: all 0.2s ease;
+    }
+
+    .thread-link:hover {
+      background-color: #d1ebfa;
+      text-decoration: underline;
+    }
+
+    .thread-instruction {
+      font-size: 12px;
+      color: #666;
+      background-color: #f8f8f8;
+      border-left: 3px solid #3498db;
+      padding: 8px 10px;
+      margin-bottom: 15px;
+      border-radius: 0 4px 4px 0;
+    }
+
+    kbd {
+      background-color: #f7f7f7;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.2);
+      color: #333;
+      display: inline-block;
+      font-size: 11px;
+      line-height: 1.4;
+      margin: 0 0.1em;
+      padding: 0.1em 0.6em;
+      text-shadow: 0 1px 0 #fff;
+    }
+
+    .shortcut-container {
+  margin-top: 15px;
+  margin-bottom: 15px;
+}
+
+.shortcut-container label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 14px;
+}
+
+.shortcut-input-container {
+  display: flex;
+  align-items: center;
+}
+
+.shortcut-input-container input {
+  flex: 1;
+  text-align: center;
+  font-family: monospace;
+  font-size: 14px;
+  background-color: #f5f5f5;
+  cursor: pointer;
+  margin-bottom: 0;
+}
+
+.shortcut-input-container input:focus {
+  background-color: #e8f4fc;
+  outline: 2px solid #3498db;
+}
+
+  #resetShortcut {
+    width: 30px;
+    height: 30px;
+    margin-left: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px;
+    margin-bottom: 0;
+  }
+
+    #resetShortcut:hover {
+      background-color: #f0f0f0;
+      border-radius: 4px;
+    }
+
+    #resetShortcut:hover .icon-svg {
+      fill: #3498db;
+    }
+
+    .thread-instruction kbd {
+      background-color: #f7f7f7;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.2);
+      color: #333;
+      display: inline-block;
+      font-size: 11px;
+      line-height: 1.4;
+      margin: 0 0.1em;
+      padding: 0.1em 0.6em;
+      text-shadow: 0 1px 0 #fff;
+    }
   </style>
 </head>
 <body>
   <h3>
     Update Redmine Issue
-    <div id="settingsIcon" title="Settings">
-      <!-- SVG Gear Icon -->
-      <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-        <path d="M487.4 315.7l-42.6-24.6c4.3-23.2 4.3-47 0-70.2l42.6-24.6c4.9-2.8 7.1-8.6 5.5-14-11.1-35.6-30-67.8-54.7-94.6-3.8-4.1-10-5.1-14.8-2.3L380.8 110c-17.9-15.4-38.5-27.3-60.8-35.1V25.8c0-5.6-3.9-10.5-9.4-11.7-36.7-8.2-74.3-7.8-109.2 0-5.5 1.2-9.4 6.1-9.4 11.7V75c-22.2 7.9-42.8 19.8-60.8 35.1L88.7 85.5c-4.9-2.8-11-1.9-14.8 2.3-24.7 26.7-43.6 58.9-54.7 94.6-1.7 5.4.6 11.2 5.5 14L67.3 221c-4.3 23.2-4.3 47 0 70.2l-42.6 24.6c-4.9 2.8-7.1 8.6-5.5 14 11.1 35.6 30 67.8 54.7 94.6 3.8 4.1 10 5.1 14.8 2.3l42.6-24.6c17.9 15.4 38.5 27.3 60.8 35.1v49.2c0 5.6 3.9 10.5 9.4 11.7 36.7 8.2 74.3 7.8 109.2 0 5.5-1.2 9.4-6.1 9.4-11.7v-49.2c22.2-7.9 42.8-19.8 60.8-35.1l42.6 24.6c4.9 2.8 11 1.9 14.8-2.3 24.7-26.7 43.6-58.9 54.7-94.6 1.5-5.5-.7-11.3-5.6-14.1zM256 336c-44.1 0-80-35.9-80-80s35.9-80 80-80 80 35.9 80 80-35.9 80-80 80z"/>
-      </svg>
+    <div class="header-controls">
+      <div id="settingsIcon" title="Settings">
+        <!-- SVG Gear Icon -->
+        <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+          <path d="M487.4 315.7l-42.6-24.6c4.3-23.2 4.3-47 0-70.2l42.6-24.6c4.9-2.8 7.1-8.6 5.5-14-11.1-35.6-30-67.8-54.7-94.6-3.8-4.1-10-5.1-14.8-2.3L380.8 110c-17.9-15.4-38.5-27.3-60.8-35.1V25.8c0-5.6-3.9-10.5-9.4-11.7-36.7-8.2-74.3-7.8-109.2 0-5.5 1.2-9.4 6.1-9.4 11.7V75c-22.2 7.9-42.8 19.8-60.8 35.1L88.7 85.5c-4.9-2.8-11-1.9-14.8 2.3-24.7 26.7-43.6 58.9-54.7 94.6-1.7 5.4.6 11.2 5.5 14L67.3 221c-4.3 23.2-4.3 47 0 70.2l-42.6 24.6c-4.9 2.8-7.1 8.6-5.5 14 11.1 35.6 30 67.8 54.7 94.6 3.8 4.1 10 5.1 14.8 2.3l42.6-24.6c17.9 15.4 38.5 27.3 60.8 35.1v49.2c0 5.6 3.9 10.5 9.4 11.7 36.7 8.2 74.3 7.8 109.2 0 5.5-1.2 9.4-6.1 9.4-11.7v-49.2c22.2-7.9 42.8-19.8 60.8-35.1l42.6 24.6c4.9 2.8 11 1.9 14.8-2.3 24.7-26.7 43.6-58.9 54.7-94.6 1.5-5.5-.7-11.3-5.6-14.1zM256 336c-44.1 0-80-35.9-80-80s35.9-80 80-80 80 35.9 80 80-35.9 80-80 80z"/>
+        </svg>
+      </div>
     </div>
   </h3>
-  
+  <!-- <div class="thread-instruction">
+    Press <kbd>Ctrl+Shift+Z</kbd> to capture current tab URL as Thread
+  </div> -->
   <!-- API Key Container (initially hidden) -->
   <div id="apiKeyContainer">
-    <h4>API Key Settings</h4>
+    <h4>Settings</h4>
+  
+    <!-- API Key field -->
+    <label for="apiKey">Redmine API Key:</label>
     <input type="text" id="apiKey" placeholder="Enter your Redmine API Key">
+    
+    <!-- Keyboard shortcut configuration -->
+    <div class="shortcut-container">
+      <label for="threadShortcut">Thread URL Shortcut:</label>
+      <div class="shortcut-input-container">
+        <input type="text" id="threadShortcut" placeholder="Click to record shortcut" readonly>
+        <button id="resetShortcut" title="Reset to default (Ctrl+Shift+Z)">
+          <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+            <path d="M500.33 0h-47.41a12 12 0 0 0-12 12.57l4 82.76A247.42 247.42 0 0 0 256 8C119.34 8 7.9 119.53 8 256.19 8.1 393.07 119.1 504 256 504a247.1 247.1 0 0 0 166.18-63.91 12 12 0 0 0 .48-17.43l-34-34a12 12 0 0 0-16.38-.55A176 176 0 1 1 402.1 157.8l-101.53-4.87a12 12 0 0 0-12.57 12v47.41a12 12 0 0 0 12 12h200.33a12 12 0 0 0 12-12V12a12 12 0 0 0-12-12z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    
     <div class="button-group">
       <button id="saveApiKey">Save</button>
       <button id="cancelApiKey">Cancel</button>
@@ -191,6 +327,9 @@
   
   <!-- Main Content (visible when API key is set) -->
   <div id="mainContent">
+    <a id="threadLink" href="#" class="thread-link hidden">
+      <span>Thread</span>
+    </a>
     <div id="issueTitle"></div>
     <!-- Issue ID container with copy button -->
     <div class="issue-id-container">
