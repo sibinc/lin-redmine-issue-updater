@@ -324,9 +324,11 @@ function setSelectedStatus(statusId) {
 
 // Function to update the issue status
 async function updateIssueStatus(apiKey) {
+  const statusDropdown = document.getElementById('status');
   const issueId = document.getElementById('issueId').value;
   const statusId = document.getElementById('status').value;
   const messageDiv = document.getElementById('message');
+  const statusName = statusDropdown.options[statusDropdown.selectedIndex].text;
 
   if (!issueId) {
     messageDiv.textContent = 'Please enter an Issue ID.';
@@ -360,6 +362,8 @@ async function updateIssueStatus(apiKey) {
       
       // Refresh issue details after successful update
       fetchIssueDetails(issueId, apiKey);
+      // Update the status text on the page if we're on a Redmine issue page
+      updateStatusOnPage(statusName);
     } else {
       // Check if it's an API key issue
       if (response.status === 401) {
@@ -681,4 +685,28 @@ function populateStatusDropdown(dropdown, statuses) {
     option.textContent = status.name;
     dropdown.appendChild(option);
   });
+}
+
+
+// Function to update the status text on the current Redmine issue page
+async function updateStatusOnPage(statusName) {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    
+    // Check if we're on a Redmine issue page
+    if (tab.url.includes('/issues/')) {
+      await chrome.tabs.sendMessage(tab.id, {
+        action: "updateIssueStatus",
+        statusName: statusName
+      }).catch(error => {
+        // This might fail if we're not on a Redmine page or content script isn't loaded
+        console.log("Could not update page (might not be on a Redmine issue page):", error);
+      });
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.error("Error sending message to content script:", err);
+    return false;
+  }
 }
