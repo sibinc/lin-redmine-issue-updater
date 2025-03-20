@@ -6,7 +6,8 @@
   "permissions": [
     "storage",
     "activeTab",
-    "clipboardWrite"
+    "clipboardWrite",
+    "tabs"
   ],
   "content_scripts": [
     {

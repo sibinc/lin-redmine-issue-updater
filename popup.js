@@ -670,25 +670,31 @@ function populateStatusDropdown(dropdown, statuses) {
 }
 
 
-// Function to update the status text on the current Redmine issue page
 async function updateStatusOnPage(statusName) {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    console.log("Current tab:", tab);
     
     // Check if we're on a Redmine issue page
     if (tab.url.includes('/issues/')) {
-      await chrome.tabs.sendMessage(tab.id, {
-        action: "updateIssueStatus",
-        statusName: statusName
-      }).catch(error => {
-        // This might fail if we're not on a Redmine page or content script isn't loaded
-        console.log("Could not update page (might not be on a Redmine issue page):", error);
-      });
-      return true;
+      try {
+        console.log("Sending message to tab:", tab.id);
+        const response = await chrome.tabs.sendMessage(tab.id, {
+          action: "updateIssueStatus",
+          statusName: statusName
+        });
+        console.log("Response:", response);
+        return response?.success || false;
+      } catch (messageError) {
+        console.error("Message sending error:", messageError);
+        return false;
+      }
+    } else {
+      console.log("Not on an issue page:", tab.url);
+      return false;
     }
-    return false;
   } catch (err) {
-    console.error("Error sending message to content script:", err);
+    console.error("Error in updateStatusOnPage:", err);
     return false;
   }
 }
@@ -806,4 +812,17 @@ async function saveSelectedStatuses() {
     console.error('Error saving selected status IDs:', error);
     return false;
   }
+}
+
+// Add this function to your popup.js
+function checkLoadingState() {
+  const statusDropdown = document.getElementById('status');
+  const loadingIndicator = document.getElementById('loadingIndicator');
+  const submitButton = document.getElementById('submit');
+  
+  console.log('Current UI State:');
+  console.log('- Status Dropdown display:', statusDropdown.style.display);
+  console.log('- Loading Indicator display:', loadingIndicator.style.display);
+  console.log('- Submit Button disabled:', submitButton.disabled);
+  console.log('- Status Dropdown options count:', statusDropdown.options.length);
 }
