@@ -55,9 +55,12 @@ function toggleApiKeySettings() {
     apiKeyContainer.style.display = 'none';
   } else {
     // Load current API key if it exists
-    chrome.storage.local.get(['redmineApiKey'], (result) => {
+    chrome.storage.local.get(['redmineApiKey'], async (result) => {
       if (result.redmineApiKey) {
         document.getElementById('apiKey').value = result.redmineApiKey;
+        
+        // Load available statuses for selection
+        await loadStatusesForSelection();
       }
     });
     apiKeyContainer.style.display = 'block';
@@ -99,60 +102,34 @@ function copyIssueIdToClipboard() {
   }
 }
 
-// Function to save API key and settings
-async function saveApiKey() {
-  const apiKey = document.getElementById('apiKey').value.trim();
-  const shortcut = document.getElementById('threadShortcut').value.trim();
-  
-  if (!apiKey) {
-    document.getElementById('message').textContent = 'Please enter a valid API key.';
-    document.getElementById('message').style.color = 'red';
-    return;
-  }
-  
-  // Show loading state
-  document.getElementById('message').textContent = 'Verifying API key...';
-  document.getElementById('message').style.color = 'blue';
-  
-  // Try to fetch user details to verify the API key is valid
-  const userDetails = await fetchCurrentUser(apiKey);
-  
-  if (!userDetails) {
-    document.getElementById('message').textContent = 'Invalid API key. Could not retrieve user details.';
-    document.getElementById('message').style.color = 'red';
-    return;
-  }
-  
-  // Save the API key and shortcut
-  await chrome.storage.local.set({ 
-    redmineApiKey: apiKey,
-    threadShortcut: shortcut 
-  });
-  
-  // Update the instruction text with the new shortcut
-  updateThreadInstructionText(shortcut);
-  
-  // Hide settings and show main content
-  document.getElementById('apiKeyContainer').style.display = 'none';
-  document.getElementById('apiKeyNotSet').classList.add('hidden');
-  document.getElementById('mainContent').classList.remove('hidden');
-  
-  document.getElementById('message').textContent = `Settings saved successfully! Welcome, ${userDetails.userName}!`;
-  document.getElementById('message').style.color = 'green';
-  
-  // Reload the extension functionality with the new key
-  const result = await chrome.storage.local.get(['lastIssueId', 'lastIssueTitle']);
-  initializeExtension(apiKey, result.lastIssueId, result.lastIssueTitle);
-}
-
-// Main initialization function
+// Modified initializeExtension function to better handle loading states
 function initializeExtension(apiKey, storedIssueId, storedIssueTitle) {
+  console.log('Initializing extension');
   // Update user info display
   updateUserInfoDisplay();
+  
   // Show loading state
   showLoadingState(true);
+  
+  // Add this timeout to ensure we detect any hanging loading states
+  setTimeout(() => {
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    if (loadingIndicator.style.display === 'block') {
+      console.warn('Loading indicator still showing after 5 seconds - forcing reset');
+      showLoadingState(false);
+    }
+  }, 5000);
+  
   // Fetch available statuses from Redmine API
-  fetchIssueStatuses(apiKey);
+  fetchIssueStatuses(apiKey).then(() => {
+    console.log('Status fetch completed');
+    // Check loading state after fetching statuses
+    checkLoadingState();
+  }).catch(err => {
+    console.error('Error fetching statuses:', err);
+    // Reset loading state in case of error
+    showLoadingState(false);
+  });
   
   // Check if we're on an issue page
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -163,7 +140,11 @@ function initializeExtension(apiKey, storedIssueId, storedIssueTitle) {
       const currentIssueId = issueIdMatch[1];
       document.getElementById('issueId').value = currentIssueId;
       // Fetch issue details for the current issue
-      fetchIssueDetails(currentIssueId, apiKey);
+      fetchIssueDetails(currentIssueId, apiKey).then(() => {
+        console.log('Issue details fetch completed');
+        // Double check loading state
+        checkLoadingState();
+      });
     } else if (storedIssueId) {
       // Use the stored issue ID if we're not on an issue page
       document.getElementById('issueId').value = storedIssueId;
@@ -173,9 +154,14 @@ function initializeExtension(apiKey, storedIssueId, storedIssueTitle) {
         updateIssueTitleDisplay(storedIssueId, storedIssueTitle);
       }
       // Fetch current details to get the latest status
-      fetchIssueDetails(storedIssueId, apiKey);
+      fetchIssueDetails(storedIssueId, apiKey).then(() => {
+        console.log('Stored issue details fetch completed');
+        // Double check loading state
+        checkLoadingState();
+      });
     } else {
       // No issue ID available, hide loading state
+      console.log('No issue ID available, hiding loading state');
       showLoadingState(false);
     }
   });
@@ -211,8 +197,6 @@ function initializeExtension(apiKey, storedIssueId, storedIssueTitle) {
       });
     }
   });
-
-
 }
 
 // Function to show/hide loading state
@@ -621,56 +605,54 @@ function checkCustomShortcut(event) {
 document.addEventListener('keydown', checkCustomShortcut);
 
 
-// Function to fetch available issue statuses from Redmine API
-async function fetchIssueStatuses(apiKey) {
-  const url = 'https://redmine.linways.com/issue_statuses.json';
-  const statusDropdown = document.getElementById('status');
+// Function to save API key and settings
+async function saveApiKey() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  const shortcut = document.getElementById('threadShortcut').value.trim();
+  const messageDiv = document.getElementById('message');
   
-  // First check if we already have stored statuses
-  const storedStatuses = await chrome.storage.local.get(['redmineStatuses']);
-  
-  if (storedStatuses.redmineStatuses && storedStatuses.redmineStatuses.length > 0) {
-    // Use stored statuses if available
-    populateStatusDropdown(statusDropdown, storedStatuses.redmineStatuses);
+  if (!apiKey) {
+    messageDiv.textContent = 'Please enter a valid API key.';
+    messageDiv.style.color = 'red';
     return;
   }
   
-  // If no stored statuses, fetch from API
-  try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'X-Redmine-API-Key': apiKey,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      
-      // Clear the dropdown
-      statusDropdown.innerHTML = '';
-      
-      // Process and store statuses if API returns data
-      if (data.issue_statuses && data.issue_statuses.length > 0) {
-        // Format statuses for storage
-        const formattedStatuses = data.issue_statuses.map(status => ({
-          id: status.id,
-          name: status.name
-        }));
-        
-        // Store statuses for future use
-        await chrome.storage.local.set({ redmineStatuses: formattedStatuses });
-        
-        // Populate dropdown with the fetched statuses
-        populateStatusDropdown(statusDropdown, formattedStatuses);
-      }
-    } else {
-      console.error('Failed to fetch issue statuses');
-    }
-  } catch (error) {
-    console.error('Error fetching issue statuses:', error);
+  // Show loading state
+  messageDiv.textContent = 'Verifying API key...';
+  messageDiv.style.color = 'blue';
+  
+  // Try to fetch user details to verify the API key is valid
+  const userDetails = await fetchCurrentUser(apiKey);
+  
+  if (!userDetails) {
+    messageDiv.textContent = 'Invalid API key. Could not retrieve user details.';
+    messageDiv.style.color = 'red';
+    return;
   }
+  
+  // Save the selected statuses first
+  await saveSelectedStatuses();
+  
+  // Save the API key and shortcut
+  await chrome.storage.local.set({ 
+    redmineApiKey: apiKey,
+    threadShortcut: shortcut 
+  });
+  
+  // Update the instruction text with the new shortcut
+  updateThreadInstructionText(shortcut);
+  
+  // Hide settings and show main content
+  document.getElementById('apiKeyContainer').style.display = 'none';
+  document.getElementById('apiKeyNotSet').classList.add('hidden');
+  document.getElementById('mainContent').classList.remove('hidden');
+  
+  messageDiv.textContent = `Settings saved successfully! Welcome, ${userDetails.userName}!`;
+  messageDiv.style.color = 'green';
+  
+  // Reload the extension functionality with the new key
+  const result = await chrome.storage.local.get(['lastIssueId', 'lastIssueTitle']);
+  initializeExtension(apiKey, result.lastIssueId, result.lastIssueTitle);
 }
 
 // Helper function to populate the status dropdown
@@ -707,6 +689,121 @@ async function updateStatusOnPage(statusName) {
     return false;
   } catch (err) {
     console.error("Error sending message to content script:", err);
+    return false;
+  }
+}
+
+
+
+// Modified fetchIssueStatuses function to properly handle loading states
+async function fetchIssueStatuses(apiKey) {
+  console.log('Starting fetchIssueStatuses');
+  const url = 'https://redmine.linways.com/issue_statuses.json';
+  const statusDropdown = document.getElementById('status');
+  
+  try {
+    // First check if we already have stored statuses
+    const storedData = await chrome.storage.local.get(['redmineStatuses', 'selectedStatusIds']);
+    const allStatuses = storedData.redmineStatuses || [];
+    const selectedStatusIds = storedData.selectedStatusIds || [];
+    
+    console.log('Stored statuses:', allStatuses);
+    console.log('Selected status IDs:', selectedStatusIds);
+    
+    if (allStatuses.length > 0) {
+      // Determine which statuses to show - all or filtered
+      let statusesToShow = allStatuses;
+      
+      if (selectedStatusIds.length > 0) {
+        // Filter statuses based on selected IDs
+        statusesToShow = allStatuses.filter(status => 
+          selectedStatusIds.includes(parseInt(status.id))
+        );
+      }
+      
+      console.log('Statuses to show in dropdown:', statusesToShow);
+      
+      // Populate the dropdown with the appropriate statuses
+      populateStatusDropdown(statusDropdown, statusesToShow);
+      
+      // Make sure to show the dropdown and hide loading indicator
+      statusDropdown.style.display = 'block';
+      document.getElementById('loadingIndicator').style.display = 'none';
+      document.getElementById('submit').disabled = false;
+      
+      return;
+    }
+    
+    // If no stored statuses, fetch from API
+    console.log('No stored statuses, fetching from API');
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'X-Redmine-API-Key': apiKey,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      
+      // Process and store statuses if API returns data
+      if (data.issue_statuses && data.issue_statuses.length > 0) {
+        // Format statuses for storage
+        const formattedStatuses = data.issue_statuses.map(status => ({
+          id: status.id,
+          name: status.name
+        }));
+        
+        // Store statuses for future use
+        await chrome.storage.local.set({ redmineStatuses: formattedStatuses });
+        console.log('Stored new statuses from API:', formattedStatuses);
+        
+        // Populate dropdown with all statuses (first time)
+        populateStatusDropdown(statusDropdown, formattedStatuses);
+      } else {
+        console.error('No statuses returned from API');
+        statusDropdown.innerHTML = '<option value="">No statuses available</option>';
+      }
+    } else {
+      console.error('Failed to fetch issue statuses:', response.status, response.statusText);
+      statusDropdown.innerHTML = '<option value="">Failed to load statuses</option>';
+    }
+    
+    // Always ensure we hide the loading indicator and show the dropdown
+    statusDropdown.style.display = 'block';
+    document.getElementById('loadingIndicator').style.display = 'none';
+    document.getElementById('submit').disabled = false;
+    
+  } catch (error) {
+    console.error('Error in fetchIssueStatuses:', error);
+    statusDropdown.innerHTML = '<option value="">Error loading statuses</option>';
+    
+    // Ensure loading state is reset even on error
+    statusDropdown.style.display = 'block';
+    document.getElementById('loadingIndicator').style.display = 'none';
+    document.getElementById('submit').disabled = false;
+  }
+}
+
+// Modified saveSelectedStatuses function with better error handling
+async function saveSelectedStatuses() {
+  try {
+    // Collect selected status IDs
+    const selectedCheckboxes = document.querySelectorAll('#statusCheckboxes input[type="checkbox"]:checked');
+    console.log('Selected checkboxes:', selectedCheckboxes.length);
+    
+    const selectedStatusIds = Array.from(selectedCheckboxes)
+      .map(checkbox => parseInt(checkbox.dataset.statusId || checkbox.value));
+    
+    console.log('Saving selected status IDs:', selectedStatusIds);
+    
+    // Save to storage
+    await chrome.storage.local.set({ selectedStatusIds: selectedStatusIds });
+    console.log('Selected status IDs saved successfully');
+    return true;
+  } catch (error) {
+    console.error('Error saving selected status IDs:', error);
     return false;
   }
 }

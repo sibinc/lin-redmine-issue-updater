@@ -8,6 +8,12 @@
     "activeTab",
     "clipboardWrite"
   ],
+  "content_scripts": [
+    {
+      "matches": ["https://redmine.linways.com/*"],
+      "js": ["content.js"]
+    }
+  ],
   "host_permissions": [
     "https://redmine.linways.com/*",
     "https://redmine-remarks-api-production.up.railway.app/*"
