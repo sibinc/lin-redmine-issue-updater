@@ -151,6 +151,8 @@ function initializeExtension(apiKey, storedIssueId, storedIssueTitle) {
   updateUserInfoDisplay();
   // Show loading state
   showLoadingState(true);
+  // Fetch available statuses from Redmine API
+  fetchIssueStatuses(apiKey);
   
   // Check if we're on an issue page
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -180,7 +182,9 @@ function initializeExtension(apiKey, storedIssueId, storedIssueTitle) {
   
   // Set up event listeners
   document.getElementById('submit').addEventListener('click', () => {
+    console.log('calling functions')
     updateIssueStatus(apiKey);
+    updateRemarks(apiKey);
   });
   
   // Add event listener for issue ID input changes
@@ -611,3 +615,70 @@ function checkCustomShortcut(event) {
 
 // Update existing keyboard event listener to use the custom shortcut
 document.addEventListener('keydown', checkCustomShortcut);
+
+
+// Function to fetch available issue statuses from Redmine API
+async function fetchIssueStatuses(apiKey) {
+  const url = 'https://redmine.linways.com/issue_statuses.json';
+  const statusDropdown = document.getElementById('status');
+  
+  // First check if we already have stored statuses
+  const storedStatuses = await chrome.storage.local.get(['redmineStatuses']);
+  
+  if (storedStatuses.redmineStatuses && storedStatuses.redmineStatuses.length > 0) {
+    // Use stored statuses if available
+    populateStatusDropdown(statusDropdown, storedStatuses.redmineStatuses);
+    return;
+  }
+  
+  // If no stored statuses, fetch from API
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'X-Redmine-API-Key': apiKey,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      
+      // Clear the dropdown
+      statusDropdown.innerHTML = '';
+      
+      // Process and store statuses if API returns data
+      if (data.issue_statuses && data.issue_statuses.length > 0) {
+        // Format statuses for storage
+        const formattedStatuses = data.issue_statuses.map(status => ({
+          id: status.id,
+          name: status.name
+        }));
+        
+        // Store statuses for future use
+        await chrome.storage.local.set({ redmineStatuses: formattedStatuses });
+        
+        // Populate dropdown with the fetched statuses
+        populateStatusDropdown(statusDropdown, formattedStatuses);
+      }
+    } else {
+      console.error('Failed to fetch issue statuses');
+    }
+  } catch (error) {
+    console.error('Error fetching issue statuses:', error);
+  }
+}
+
+// Helper function to populate the status dropdown
+function populateStatusDropdown(dropdown, statuses) {
+  // Clear the dropdown
+  dropdown.innerHTML = '';
+  
+  // Add each status as an option
+  statuses.forEach(status => {
+    const option = document.createElement('option');
+    option.value = status.id;
+    option.textContent = status.name;
+    dropdown.appendChild(option);
+  });
+}

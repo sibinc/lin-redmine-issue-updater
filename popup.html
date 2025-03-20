@@ -275,6 +275,12 @@
       padding: 0.1em 0.6em;
       text-shadow: 0 1px 0 #fff;
     }
+    textarea {
+            width: 100%;
+            height: 50px;
+            margin-bottom: 10px;
+            padding-right: 100px;
+        }
   </style>
 </head>
 <body>
@@ -312,6 +318,15 @@
         </button>
       </div>
     </div>
+
+    <!-- Status Filter Section -->
+    <div id="statusFilterSection" style="margin-top: 15px; max-height: 200px; overflow-y: auto;">
+      <h5 style="margin-top: 0; margin-bottom: 10px;">Select statuses to display:</h5>
+      <div id="statusCheckboxes">
+        <!-- Status checkboxes will be added here dynamically -->
+        <p style="color: #888; font-style: italic;">Loading available statuses...</p>
+      </div>
+    </div>
     
     <div class="button-group">
       <button id="saveApiKey">Save</button>
@@ -345,20 +360,12 @@
     </div>
     <div id="loadingIndicator">Loading issue status...</div>
     <select id="status" style="display: none;">
-      <option value="1">New</option>
-      <option value="2">Development in progress</option>
-      <option value="39">Development Completed</option>
-      <option value="3">Resolved</option>
-      <option value="8">Re-Opened</option>
-      <option value="5">Closed</option>
-      <option value="7">Need More Information</option>
-      <option value="6">Rejected</option>
-      <option value="36">Paused</option>
     </select>
+    <textarea id="remark" placeholder="Type your remark here..."></textarea>
     <button id="submit" disabled>Update Status</button>
   </div>
-  
   <div id="message" class="message"></div>
   <script src="popup.js"></script>
+  <script src="update-remarks.js"></script>
 </body>
 </html>
